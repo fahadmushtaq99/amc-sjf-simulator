@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMC-SJF | Adaptive Multi-Core Scheduling Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="scanline-bg" aria-hidden="true"></div>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-mark">AMC<span class="brand-mark-accent">·</span>SJF</span>
+      <span class="brand-sub">Adaptive Multi-Core Scheduling Simulator</span>
+    </div>
+    <nav class="header-nav">
+      <a href="#configure">Configure</a>
+      <a href="#results">Results</a>
+      <a href="#gantt">Gantt</a>
+      <a href="#metrics">Metrics</a>
+      <a href="#learn">How it works</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-inner">
+    <p class="hero-eyebrow">A CPU scheduling simulator for the classroom, not the kernel</p>
+    <h1 class="hero-title">Every core is a queue.<br>Every wait costs something.</h1>
+    <p class="hero-copy">
+      This simulator runs a client-side model of two dispatch strategies across N virtual CPU cores:
+      classic <strong>Shortest Job First</strong>, which always trusts the shortest remaining burst, and
+      <strong>Adaptive Multi-Core SJF (AMC-SJF)</strong>, which blends remaining burst with an aging term
+      so long-waiting processes eventually win a core. Nothing here touches your real operating system —
+      it is a pure JavaScript simulation of timestamps, priorities and idle gaps.
+    </p>
+    <div class="hero-formula" aria-label="Priority formula">
+      <span class="formula-label">Dispatch priority</span>
+      <span class="formula-expr">P = 1 / remaining_burst&nbsp;&nbsp;+&nbsp;&nbsp;λ × (waiting / total_burst)</span>
+    </div>
+  </div>
+</section>
+
+<main>
+
+<!-- ============ CONFIGURE ============ -->
+<section id="configure" class="panel">
+  <div class="panel-inner two-col">
+
+    <div class="col">
+      <h2 class="panel-title"><span class="panel-index">01</span>Process queue</h2>
+      <p class="panel-desc">Add the workload you want to schedule. Process IDs must be unique.</p>
+
+      <form id="process-form" class="process-form" novalidate>
+        <div class="field-row">
+          <div class="field">
+            <label for="pid">Process ID</label>
+            <input type="text" id="pid" placeholder="P1" maxlength="12" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="arrival">Arrival time (ms)</label>
+            <input type="number" id="arrival" placeholder="0" min="0" step="1">
+          </div>
+          <div class="field">
+            <label for="burst">Burst time (ms)</label>
+            <input type="number" id="burst" placeholder="5" min="1" step="1">
+          </div>
+          <div class="field field-btn">
+            <button type="submit" class="btn btn-primary" id="add-process-btn">Add process</button>
+          </div>
+        </div>
+        <p class="field-error" id="form-error" role="alert"></p>
+      </form>
+
+      <div class="table-wrap">
+        <table class="data-table" id="process-table">
+          <thead>
+            <tr>
+              <th>PID</th>
+              <th>Arrival</th>
+              <th>Burst</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="process-table-body">
+            <tr class="empty-row"><td colspan="4">No processes yet — add one above, or load a sample set.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="btn-row">
+        <button type="button" class="btn btn-ghost" id="sample-btn">Load sample workload</button>
+        <button type="button" class="btn btn-ghost" id="random-btn">Generate random workload</button>
+        <button type="button" class="btn btn-ghost danger" id="clear-btn">Clear all</button>
+      </div>
+    </div>
+
+    <div class="col">
+      <h2 class="panel-title"><span class="panel-index">02</span>CPU configuration</h2>
+      <p class="panel-desc">Tune the hardware and the aging weight before running a simulation.</p>
+
+      <div class="config-grid">
+        <div class="field">
+          <label for="cores">CPU cores</label>
+          <input type="number" id="cores" value="2" min="1" max="16" step="1">
+        </div>
+        <div class="field">
+          <label for="lambda">Lambda (λ) — aging weight</label>
+          <input type="number" id="lambda" value="0.5" min="0" max="10" step="0.1">
+        </div>
+        <div class="field">
+          <label>Time unit</label>
+          <div class="static-pill">milliseconds (ms)</div>
+        </div>
+      </div>
+
+      <div class="lambda-note">
+        <p><strong>λ = 0</strong> makes AMC-SJF behave exactly like pure SJF — waiting time stops mattering.
+        Raise λ and processes that have been waiting a long time start outranking freshly-arrived short jobs,
+        which is what prevents starvation on a busy system.</p>
+      </div>
+
+      <div class="run-block">
+        <h3 class="run-title">Run simulation</h3>
+        <div class="btn-row">
+          <button type="button" class="btn btn-accent-amber" id="run-amc-btn">Run AMC-SJF</button>
+          <button type="button" class="btn btn-accent-teal" id="run-sjf-btn">Run SJF</button>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" id="compare-btn">Compare algorithms</button>
+          <button type="button" class="btn btn-ghost" id="reset-btn">Reset simulation</button>
+        </div>
+        <p class="run-status" id="run-status" role="status" aria-live="polite">No simulation run yet.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ RESULTS ============ -->
+<section id="results" class="panel panel-alt">
+  <div class="panel-inner">
+    <h2 class="panel-title"><span class="panel-index">03</span>Per-process results</h2>
+    <p class="panel-desc">Start, finish, waiting, turnaround and response time for every process, plus the priority score it was dispatched with.</p>
+
+    <div class="results-tabs" id="results-tabs">
+      <button class="tab-btn active" data-tab="amc">AMC-SJF</button>
+      <button class="tab-btn" data-tab="sjf">Normal SJF</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table results-table" id="amc-results-table">
+        <thead>
+          <tr>
+            <th>PID</th><th>Core</th><th>Arrival</th><th>Burst</th><th>Start</th><th>Finish</th>
+            <th>Waiting</th><th>Turnaround</th><th>Response</th><th>Priority @ dispatch</th>
+          </tr>
+        </thead>
+        <tbody id="amc-results-body">
+          <tr class="empty-row"><td colspan="10">Run AMC-SJF to see results here.</td></tr>
+        </tbody>
+      </table>
+      <table class="data-table results-table hidden" id="sjf-results-table">
+        <thead>
+          <tr>
+            <th>PID</th><th>Core</th><th>Arrival</th><th>Burst</th><th>Start</th><th>Finish</th>
+            <th>Waiting</th><th>Turnaround</th><th>Response</th><th>Priority @ dispatch</th>
+          </tr>
+        </thead>
+        <tbody id="sjf-results-body">
+          <tr class="empty-row"><td colspan="10">Run SJF to see results here.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ GANTT ============ -->
+<section id="gantt" class="panel">
+  <div class="panel-inner">
+    <h2 class="panel-title"><span class="panel-index">04</span>Gantt chart</h2>
+    <p class="panel-desc">One lane per core. Hatched blocks are idle gaps where a core had no ready process to run.</p>
+
+    <div class="gantt-tabs" id="gantt-tabs">
+      <button class="tab-btn active" data-tab="amc">AMC-SJF</button>
+      <button class="tab-btn" data-tab="sjf">Normal SJF</button>
+    </div>
+
+    <div class="gantt-wrap">
+      <div id="amc-gantt" class="gantt-chart">
+        <p class="gantt-empty">Run AMC-SJF to draw its Gantt chart.</p>
+      </div>
+      <div id="sjf-gantt" class="gantt-chart hidden">
+        <p class="gantt-empty">Run SJF to draw its Gantt chart.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ METRICS ============ -->
+<section id="metrics" class="panel panel-alt">
+  <div class="panel-inner">
+    <h2 class="panel-title"><span class="panel-index">05</span>Performance metrics</h2>
+    <p class="panel-desc">Aggregate numbers for each algorithm, and the delta once both have been run.</p>
+
+    <div class="metrics-grid" id="metrics-grid">
+      <div class="metric-card">
+        <span class="metric-label">Avg. waiting time</span>
+        <span class="metric-value" id="m-waiting">—</span>
+        <span class="metric-sub" id="m-waiting-sub"></span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Avg. turnaround time</span>
+        <span class="metric-value" id="m-turnaround">—</span>
+        <span class="metric-sub" id="m-turnaround-sub"></span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Avg. response time</span>
+        <span class="metric-value" id="m-response">—</span>
+        <span class="metric-sub" id="m-response-sub"></span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">CPU utilization</span>
+        <span class="metric-value" id="m-util">—</span>
+        <span class="metric-sub" id="m-util-sub"></span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Throughput</span>
+        <span class="metric-value" id="m-throughput">—</span>
+        <span class="metric-sub" id="m-throughput-sub"></span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Total execution time</span>
+        <span class="metric-value" id="m-total">—</span>
+        <span class="metric-sub" id="m-total-sub"></span>
+      </div>
+    </div>
+
+    <div id="comparison-block" class="comparison-block hidden">
+      <h3 class="run-title">AMC-SJF vs. SJF</h3>
+      <div class="table-wrap">
+        <table class="data-table" id="comparison-table">
+          <thead>
+            <tr><th>Metric</th><th>AMC-SJF</th><th>Normal SJF</th><th>Difference</th></tr>
+          </thead>
+          <tbody id="comparison-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LEARN ============ -->
+<section id="learn" class="panel">
+  <div class="panel-inner">
+    <h2 class="panel-title"><span class="panel-index">06</span>How the two algorithms differ</h2>
+    <div class="learn-grid">
+      <div class="learn-card">
+        <h3>Normal SJF</h3>
+        <p>Whenever a core goes idle, it picks whichever arrived, unstarted process has the smallest
+        <em>remaining burst time</em>. It is provably optimal for minimizing average waiting time on a
+        single core with all jobs known upfront — but a long job sitting in the queue can be repeatedly
+        skipped by a stream of short arrivals, which is starvation.</p>
+      </div>
+      <div class="learn-card">
+        <h3>AMC-SJF</h3>
+        <p>Each ready process is scored by <code>1 / remaining_burst + λ × (waiting / total_burst)</code>
+        at the moment a core becomes free. The first term still rewards short jobs; the second term grows
+        the longer a process has waited relative to its own size, so its score eventually overtakes newer,
+        shorter arrivals. This is a form of <strong>aging</strong>, extended across multiple cores.</p>
+      </div>
+      <div class="learn-card">
+        <h3>Why it needs multiple cores</h3>
+        <p>With more than one core, several processes can be dispatched at the same instant. AMC-SJF treats
+        each core-free event independently: it looks at every core that just became available, re-ranks the
+        ready queue at that exact timestamp, and assigns the best-scoring process — so two cores freeing up
+        together can pick two different processes rather than fighting over one.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <p>AMC-SJF Simulator — a client-side scheduling visualization built for coursework. No process on this page touches your real operating system.</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
