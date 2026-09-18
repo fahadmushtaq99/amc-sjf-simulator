@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # AMC-SJF CPU Scheduling Simulator
 
 A browser-based simulator that compares two CPU scheduling strategies across
@@ -279,3 +280,7 @@ With **2 cores** and **λ = 0.5**, running both algorithms should produce:
 - [x] Clean modular files: `index.html`, `style.css`, `script.js`, `README.md`
 - [x] Optional, clearly separated Python CLI using `colorama`, `pyfiglet`, `os`, `time`, `random`
 - [x] Full documentation (this README)
+=======
+# amc-sjf-simulator
+AMC-SJF is a client-side JavaScript web simulator that compares classical Shortest Job First with an Adaptive Multi-Core dispatch strategy. It prevents starvation by using an aging formula to score waiting processes across virtual CPU cores. Users can configure workloads, view Gantt charts, and analyze performance metrics.
+>>>>>>> 7a7520726addc36ebb656f1a794edc999e12d26f
